@@ -53,18 +53,42 @@ def text2story(text):
 
     return story_text
 
-
-# text2audio
-def text2audio(story_text):
-    audio_pipe = pipeline(
-        "text-to-audio",
-        model="Matthijs/mms-tts-eng"
+# text2story
+def text2story(text):
+    story_pipe = pipeline(
+        "text2text-generation",
+        model="google/flan-t5-small"
     )
 
-    audio_data = audio_pipe(story_text)
+    story_prompt = f"""
+    Write a short, warm, and imaginative story for children aged 3 to 10.
 
-    return audio_data
+    Image description:
+    {text}
 
+    Requirements:
+    The story should be 50 to 100 words.
+    Use simple English.
+    Make the story positive and child-friendly.
+    Avoid scary or violent details.
+    Include a happy ending.
+    """
+
+    story_results = story_pipe(
+        story_prompt,
+        max_new_tokens=120,
+        do_sample=True,
+        temperature=0.8
+    )
+
+    story_text = story_results[0]["generated_text"].strip()
+
+    # Keep the story within about 100 words
+    words = story_text.split()
+    if len(words) > 100:
+        story_text = " ".join(words[:100]) + "."
+
+    return story_text
 
 # Main part
 def main():
