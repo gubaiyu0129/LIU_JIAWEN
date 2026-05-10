@@ -88,18 +88,95 @@ def text2audio(story_text):
 # Main part
 def main():
     st.set_page_config(
-        page_title="Your Image to Audio Story",
-        page_icon="🦜"
+        page_title="Image to Audio Story",
+        page_icon="🦜",
+        layout="centered"
     )
 
-    st.header("Turn Your Image into an Audio Story")
+    # CSS style
+    st.markdown(
+        """
+        <style>
+        .main-title {
+            text-align: center;
+            font-size: 42px;
+            font-weight: 800;
+            color: #3B3B58;
+            margin-bottom: 10px;
+        }
 
-    st.write(
-        "Upload an image, and this app will generate a short children's story and turn it into audio."
+        .sub-title {
+            text-align: center;
+            font-size: 18px;
+            color: #666666;
+            margin-bottom: 30px;
+        }
+
+        .story-card {
+            background-color: #FFF8E7;
+            padding: 24px;
+            border-radius: 18px;
+            border: 1px solid #F1DCA7;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.06);
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+
+        .scenario-card {
+            background-color: #EEF6FF;
+            padding: 18px;
+            border-radius: 16px;
+            border: 1px solid #CFE6FF;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+
+        .audio-card {
+            background-color: #F1FFF4;
+            padding: 18px;
+            border-radius: 16px;
+            border: 1px solid #CDEFD6;
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+
+        .small-note {
+            color: #777777;
+            font-size: 14px;
+            text-align: center;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Sidebar
+    with st.sidebar:
+        st.title("📚 App Info")
+        st.write("This app creates a short audio story from an uploaded image.")
+        st.write("Designed for children aged **3–10**.")
+        st.write("Main stages:")
+        st.write("1. Image Captioning")
+        st.write("2. Story Generation")
+        st.write("3. Text-to-Audio")
+        st.divider()
+        st.write("Built with:")
+        st.write("✅ Streamlit")
+        st.write("✅ Hugging Face Pipeline")
+
+    # Main title
+    st.markdown(
+        '<div class="main-title">🦜 Image to Audio Story</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<div class="sub-title">Upload a picture and let the app create a warm children\'s story with audio.</div>',
+        unsafe_allow_html=True
     )
 
     uploaded_file = st.file_uploader(
-        "Select an Image...",
+        "📤 Select an image...",
         type=["jpg", "jpeg", "png"]
     )
 
@@ -114,39 +191,80 @@ def main():
         with open(image_path, "wb") as file:
             file.write(bytes_data)
 
-        # Display uploaded image
         st.image(
             uploaded_file,
             caption="Uploaded Image",
             use_column_width=True
         )
 
-        if st.button("Generate Story"):
+        st.markdown(
+            '<p class="small-note">Click the button below to generate your story.</p>',
+            unsafe_allow_html=True
+        )
+
+        generate_button = st.button(
+            "✨ Generate My Story",
+            type="primary",
+            use_container_width=True
+        )
+
+        if generate_button:
 
             try:
                 # Stage 1: Image to Text
-                st.text("Processing img2text...")
-                scenario = img2text(image_path)
-                st.write(f"**Scenario:** {scenario}")
+                with st.spinner("🔍 Looking at the image..."):
+                    scenario = img2text(image_path)
+
+                st.markdown(
+                    f"""
+                    <div class="scenario-card">
+                    <h4>🖼️ Image Scenario</h4>
+                    <p>{scenario}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
                 # Stage 2: Text to Story
-                st.text("Generating a story...")
-                story = text2story(scenario)
-                st.write(f"**Story:** {story}")
+                with st.spinner("✍️ Writing a short children's story..."):
+                    story = text2story(scenario)
+
+                st.markdown(
+                    f"""
+                    <div class="story-card">
+                    <h4>📖 Generated Story</h4>
+                    <p>{story}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
                 # Stage 3: Story to Audio
-                st.text("Generating audio data...")
-                audio_data = text2audio(story)
+                with st.spinner("🎧 Creating audio for the story..."):
+                    audio_data = text2audio(story)
 
-                # Play audio
                 audio_array = audio_data["audio"]
                 sample_rate = audio_data["sampling_rate"]
 
+                st.markdown(
+                    """
+                    <div class="audio-card">
+                    <h4>🔊 Listen to the Story</h4>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
                 st.audio(audio_array, sample_rate=sample_rate)
+
+                st.success("Done! Your image story is ready. 🌟")
 
             except Exception as e:
                 st.error("An error occurred while running the app.")
                 st.exception(e)
+
+    else:
+        st.info("Please upload an image to start the story generation.")
 
 
 if __name__ == "__main__":
