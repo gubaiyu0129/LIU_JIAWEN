@@ -26,23 +26,31 @@ def text2story(text):
         model="google/flan-t5-large"
     )
 
+    def clean_story_output(output_text):
+        output_text = output_text.strip()
+        output_text = output_text.replace("Story:", "").strip()
+        output_text = output_text.replace("Expanded story:", "").strip()
+        output_text = output_text.replace("Continuation:", "").strip()
+        output_text = output_text.replace("New continuation:", "").strip()
+        output_text = output_text.strip('"').strip("'").strip()
+        return output_text
+
     # First generation: create a story draft
     prompt = (
         "You are a children's story writer. "
-        "Write one complete children's story in simple English. "
-        "The story must be 50 to 100 words. "
-        "It must be warm, positive, imaginative, and suitable for children aged 3 to 10. "
-        "Do not repeat the image description. "
-        "Do not repeat any sentence. "
-        "Do not include instructions, lists, titles, or explanations. "
-        "Only output the story. "
-        "Image description: "
+        "Write the beginning of one warm children's story in simple English. "
+        "The story is based on this image description: "
         + text
+        + ". "
+        "Do not repeat the image description. "
+        "Do not write instructions, lists, or titles. "
+        "Only output story text."
     )
 
     story_results = story_pipe(
         prompt,
-        max_new_tokens=160,
+        max_new_tokens=120,
+        min_new_tokens=50,
         do_sample=True,
         temperature=0.9,
         top_p=0.95,
@@ -50,88 +58,50 @@ def text2story(text):
         no_repeat_ngram_size=3
     )
 
-    story_text = story_results[0]["generated_text"].strip()
+    story_text = clean_story_output(story_results[0]["generated_text"])
 
-    # If the story is too short, expand it instead of using a backup story
-    if len(story_text.split()) < 50:
+    # Continue the story until it reaches at least 50 words
+    expand_round = 0
+
+    while len(story_text.split()) < 50 and expand_round < 5:
         expand_prompt = (
-            "Expand the following short draft into one complete children's story. "
-            "The final story must be 50 to 100 words. "
-            "Use simple English. "
-            "Make it warm, positive, imaginative, and suitable for children aged 3 to 10. "
-            "Do not repeat any sentence. "
-            "Do not include instructions, lists, titles, or explanations. "
-            "Only output the expanded story. "
+            "Continue the children's story below by adding two new simple sentences. "
+            "The continuation must be warm, positive, imaginative, and suitable for children aged 3 to 10. "
+            "Do not repeat any previous sentence. "
+            "Do not restart the story. "
+            "Do not write instructions, lists, or titles. "
+            "Only output the new continuation sentences. "
             "Image description: "
             + text
-            + " Short draft: "
+            + ". "
+            "Current story: "
             + story_text
         )
 
-        expanded_results = story_pipe(
+        expand_results = story_pipe(
             expand_prompt,
-            max_new_tokens=180,
+            max_new_tokens=90,
+            min_new_tokens=35,
             do_sample=True,
             temperature=0.9,
             top_p=0.95,
-            repetition_penalty=1.8,
+            repetition_penalty=2.0,
             no_repeat_ngram_size=3
         )
 
-        story_text = expanded_results[0]["generated_text"].strip()
+        continuation = clean_story_output(expand_results[0]["generated_text"])
 
-    # If it is still too short, expand once more
-    if len(story_text.split()) < 50:
-        second_expand_prompt = (
-            "Make this children's story longer and more complete. "
-            "The final version must be 50 to 100 words. "
-            "Keep the same meaning, but add gentle actions, feelings, and a happy ending. "
-            "Use simple English. "
-            "Only output the final story. "
-            "Story: "
-            + story_text
-        )
+        # If the model repeats the current story, remove the repeated part
+        if story_text.lower() in continuation.lower():
+            continuation = continuation.lower().replace(story_text.lower(), "").strip()
 
-        second_results = story_pipe(
-            second_expand_prompt,
-            max_new_tokens=180,
-            do_sample=True,
-            temperature=0.9,
-            top_p=0.95,
-            repetition_penalty=1.8,
-            no_repeat_ngram_size=3
-        )
+        # Append only useful continuation
+        if len(continuation.split()) >= 6 and continuation.lower() not in story_text.lower():
+            story_text = story_text.rstrip(". ") + ". " + continuation.strip()
 
-        story_text = second_results[0]["generated_text"].strip()
+        expand_round += 1
 
-    # If the story is too long, keep only the first 100 words
-    words = story_text.split()
-    if len(words) > 100:
-        story_text = " ".join(words[:100]) + "."
-
-    return story_text
-
-    # Basic check: if the model repeats the prompt or gives an unsuitable short answer,
-    # create a safe backup story based on the image description.
-    bad_words = [
-        "requirement",
-        "instruction",
-        "should be",
-        "thief",
-        "violent",
-        "scary"
-    ]
-
-    if len(story_text.split()) < 40 or any(word in story_text.lower() for word in bad_words):
-        story_text = (
-            f"One sunny morning, a kind character from the picture, described as {text}, "
-            f"found a little bird looking for its way home. The character smiled gently "
-            f"and followed the bird through a quiet garden. Along the way, they saw bright "
-            f"flowers, tiny butterflies, and a sparkling pond. At last, the bird found its "
-            f"cozy nest. Everyone felt happy, and they became good friends."
-        )
-
-    # Limit the story to about 100 words
+    # If the story is longer than 100 words, keep only the first 100 words
     words = story_text.split()
     if len(words) > 100:
         story_text = " ".join(words[:100]) + "."
