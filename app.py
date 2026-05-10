@@ -26,29 +26,88 @@ def text2story(text):
         model="google/flan-t5-large"
     )
 
+    # First generation: create a story draft
     prompt = (
         "You are a children's story writer. "
-        "Write exactly one complete story in simple English. "
+        "Write one complete children's story in simple English. "
         "The story must be 50 to 100 words. "
-        "It must be warm, positive, and suitable for children aged 3 to 10. "
+        "It must be warm, positive, imaginative, and suitable for children aged 3 to 10. "
         "Do not repeat the image description. "
         "Do not repeat any sentence. "
         "Do not include instructions, lists, titles, or explanations. "
-        "Only output the final story. "
+        "Only output the story. "
         "Image description: "
         + text
     )
 
     story_results = story_pipe(
         prompt,
-        max_new_tokens=150,
+        max_new_tokens=160,
         do_sample=True,
-        temperature=0.8,
-        top_p=0.9,
-        repetition_penalty=1.8
+        temperature=0.9,
+        top_p=0.95,
+        repetition_penalty=1.8,
+        no_repeat_ngram_size=3
     )
 
     story_text = story_results[0]["generated_text"].strip()
+
+    # If the story is too short, expand it instead of using a backup story
+    if len(story_text.split()) < 50:
+        expand_prompt = (
+            "Expand the following short draft into one complete children's story. "
+            "The final story must be 50 to 100 words. "
+            "Use simple English. "
+            "Make it warm, positive, imaginative, and suitable for children aged 3 to 10. "
+            "Do not repeat any sentence. "
+            "Do not include instructions, lists, titles, or explanations. "
+            "Only output the expanded story. "
+            "Image description: "
+            + text
+            + " Short draft: "
+            + story_text
+        )
+
+        expanded_results = story_pipe(
+            expand_prompt,
+            max_new_tokens=180,
+            do_sample=True,
+            temperature=0.9,
+            top_p=0.95,
+            repetition_penalty=1.8,
+            no_repeat_ngram_size=3
+        )
+
+        story_text = expanded_results[0]["generated_text"].strip()
+
+    # If it is still too short, expand once more
+    if len(story_text.split()) < 50:
+        second_expand_prompt = (
+            "Make this children's story longer and more complete. "
+            "The final version must be 50 to 100 words. "
+            "Keep the same meaning, but add gentle actions, feelings, and a happy ending. "
+            "Use simple English. "
+            "Only output the final story. "
+            "Story: "
+            + story_text
+        )
+
+        second_results = story_pipe(
+            second_expand_prompt,
+            max_new_tokens=180,
+            do_sample=True,
+            temperature=0.9,
+            top_p=0.95,
+            repetition_penalty=1.8,
+            no_repeat_ngram_size=3
+        )
+
+        story_text = second_results[0]["generated_text"].strip()
+
+    # If the story is too long, keep only the first 100 words
+    words = story_text.split()
+    if len(words) > 100:
+        story_text = " ".join(words[:100]) + "."
 
     return story_text
 
