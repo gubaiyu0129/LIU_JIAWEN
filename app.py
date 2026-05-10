@@ -22,33 +22,35 @@ def img2text(url):
 # text2story
 def text2story(text):
     story_pipe = pipeline(
-    "text2text-generation",
-    model="google/flan-t5-large"
-)
+        "text2text-generation",
+        model="google/flan-t5-large"
+    )
 
-   prompt = (
-    "You are a children's story writer. "
-    "Write exactly one complete story in simple English. "
-    "The story must be 50 to 100 words. "
-    "It must be warm, positive, and suitable for children aged 3 to 10. "
-    "Do not repeat the image description. "
-    "Do not repeat any sentence. "
-    "Do not include instructions, lists, titles, or explanations. "
-    "Only output the final story. "
-    "Image description: "
-    + text
-)
+    prompt = (
+        "You are a children's story writer. "
+        "Write exactly one complete story in simple English. "
+        "The story must be 50 to 100 words. "
+        "It must be warm, positive, and suitable for children aged 3 to 10. "
+        "Do not repeat the image description. "
+        "Do not repeat any sentence. "
+        "Do not include instructions, lists, titles, or explanations. "
+        "Only output the final story. "
+        "Image description: "
+        + text
+    )
 
-   story_results = story_pipe(
-    prompt,
-    max_new_tokens=150,
-    do_sample=True,
-    temperature=0.8,
-    top_p=0.9,
-    repetition_penalty=1.8
-)
+    story_results = story_pipe(
+        prompt,
+        max_new_tokens=150,
+        do_sample=True,
+        temperature=0.8,
+        top_p=0.9,
+        repetition_penalty=1.8
+    )
 
     story_text = story_results[0]["generated_text"].strip()
+
+    return story_text
 
     # Basic check: if the model repeats the prompt or gives an unsuitable short answer,
     # create a safe backup story based on the image description.
